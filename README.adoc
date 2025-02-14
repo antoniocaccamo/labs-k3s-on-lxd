@@ -1,0 +1,63 @@
+= labs-k3s-on-lxd
+:title: Building a K3S cluster on Proxmox LXCs
+:sectids:
+:sectanchors:
+:secnums:
+:sectlinks:
+:toc: auto
+
+
+
+
+== ct-certbot
+
+
+
+.Create Let's Encrypt certs
+[source, bash]
+----
+certbot certonly \
+  --dns-cloudflare \
+  --dns-cloudflare-credentials .secrets/cloudflare/${domain} \
+  -d ${domain} -d *.${domain}
+----
+
+== K3S
+
+=== cluster Setup
+
+Follow instructions:
+
+- [Rancher K3s: Kubernetes on Proxmox Containers](https://medium.com/better-programming/rancher-k3s-kubernetes-on-proxmox-containers-2228100e2d13)
+
+- [Proxmox VE Helper-Scripts (Community Edition) ](https://community-scripts.github.io/ProxmoxVE/)
+
+=== metallb
+
+[source, bash]
+----
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
+kubectl apply -f kubectl apply -f metallb
+----
+
+=== import certificate from ct-certbot
+
+[source, bash]
+----
+domain=...
+
+ssh -i ~/.ssh/<...> root@ct-certbot -t "cat /etc/letsencrypt/live/${domain}/privkey.pem" > /tmp/${domain}/privkey.pem
+ssh -i ~/.ssh/<...> root@ct-certbot -t "cat /etc/letsencrypt/live/${domain}/fullchain.pem" > /tmp/${domain}/fullchain.pem
+
+kubectl create secret tls tls-secret \
+    --cert=/tmp/${domain}/fullchain.pem \
+    --key=/tmp/${domain}/privkey.pem
+----
+
+=== ingress-nginx
+[source, bash]
+----
+helm upgrade --install ingress-nginx ingress-nginx \
+  --repo https://kubernetes.github.io/ingress-nginx \
+  --namespace ingress-nginx --create-namespace
+----
